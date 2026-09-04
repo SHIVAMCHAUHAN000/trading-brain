@@ -425,14 +425,14 @@ async function handleSendMessage() {
         }
 
         const data = await res.json();
-        appendChatMessage("assistant", data.response, data.tools_called, data.latency_ms);
+        appendChatMessage("assistant", data.response, data.tools_called, data.latency_ms, data.engine);
     } catch (e) {
         removeTypingIndicator(typingId);
         appendChatMessage("assistant", `⚠️ Network error: ${e.message}`);
     }
 }
 
-function appendChatMessage(role, content, tools = [], latency = null) {
+function appendChatMessage(role, content, tools = [], latency = null, engine = null) {
     const container = document.getElementById("chat-messages-container");
     if (!container) return;
 
@@ -444,10 +444,14 @@ function appendChatMessage(role, content, tools = [], latency = null) {
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/\n/g, "<br/>");
 
-    const toolsBadge = (tools && tools.length > 0)
-        ? `<div class="mt-2 text-[10px] text-gray-400 flex flex-wrap gap-1">
-             <span class="text-gray-500">Tools:</span>
-             ${tools.map(t => `<span class="px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700">${t}</span>`).join("")}
+    const engineBadge = engine
+        ? `<span class="px-1.5 py-0.5 ${engine.startsWith('OpenAI') ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60' : 'bg-blue-950/70 text-blue-300 border-blue-700/60'} rounded border text-[10px] font-mono font-medium">${engine}</span>`
+        : '';
+
+    const toolsBadge = ((tools && tools.length > 0) || engine)
+        ? `<div class="mt-2 text-[10px] text-gray-400 flex flex-wrap items-center gap-1.5">
+             ${engineBadge}
+             ${(tools && tools.length > 0) ? `<span class="text-gray-500">Tools:</span>${tools.map(t => `<span class="px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700">${t}</span>`).join("")}` : ''}
              ${latency ? `<span class="text-blue-400 font-mono">(${latency}ms)</span>` : ''}
            </div>`
         : '';
@@ -457,7 +461,7 @@ function appendChatMessage(role, content, tools = [], latency = null) {
             <div class="text-sm leading-relaxed">${formattedContent}</div>
             ${toolsBadge}
         </div>
-        <span class="text-[10px] text-gray-500 mt-1 px-1">${role === 'user' ? 'You' : 'Live Quant Brain'}</span>
+        <span class="text-[10px] text-gray-500 mt-1 px-1">${role === 'user' ? 'You' : (engine ? `Live Quant Brain • <span class="text-blue-400">${engine}</span>` : 'Live Quant Brain')}</span>
     `;
 
     container.appendChild(div);

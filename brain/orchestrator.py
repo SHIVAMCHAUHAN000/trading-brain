@@ -34,8 +34,14 @@ class QuantBrainOrchestrator:
         start_time = time.time()
         logger.info("[%s] User Query: '%s' (Session: %s)", channel.upper(), user_message, session_id)
 
-        # 1. Fetch current conversation context
+        # 1. Fetch current conversation context & message history
         context = await QuantBrainRepository.get_active_context(session_id)
+        raw_history = await QuantBrainRepository.get_messages(session_id=session_id, limit=6)
+        conversation_history = [
+            {"role": m.role, "content": m.content}
+            for m in reversed(raw_history)
+            if m.content and not m.content.startswith("⛔")
+        ]
 
         # 2. Extract active symbol & timeframe (inherits from context if follow-up)
         symbol, timeframe, was_symbol_explicit = extract_symbol_and_timeframe(
@@ -62,13 +68,20 @@ class QuantBrainOrchestrator:
                 tool_results[tool_name] = {"error": str(out)}
 
         # 5. Generate AI response
-        ai_response = await quant_llm_client.generate_response(
+        gen_result = await quant_llm_client.generate_response(
             user_query=user_message,
             intent=intent,
             symbol=symbol,
             timeframe=timeframe,
             tool_results=tool_results,
+            conversation_history=conversation_history,
         )
+
+        if isinstance(gen_result, tuple):
+            ai_response, engine_used = gen_result
+        else:
+            ai_response = gen_result
+            engine_used = "Deterministic Quant Engine"
 
         total_latency = round((time.time() - start_time) * 1000, 2)
 
@@ -93,7 +106,7 @@ class QuantBrainOrchestrator:
             role="assistant",
             content=ai_response,
             channel=channel,
-            metadata={"latency_ms": total_latency, "tools_called": [t["tool"] for t in tool_calls]},
+            metadata={"latency_ms": total_latency, "engine": engine_used, "tools_called": [t["tool"] for t in tool_calls]},
         )
 
         return {
@@ -102,6 +115,7 @@ class QuantBrainOrchestrator:
             "timeframe": timeframe,
             "intent": intent.value,
             "response": ai_response,
+            "engine": engine_used,
             "tools_called": [t["tool"] for t in tool_calls],
             "latency_ms": total_latency,
             "timestamp": time.time(),

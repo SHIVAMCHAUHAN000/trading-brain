@@ -48,9 +48,21 @@ async def get_connections_status() -> Dict[str, Any]:
     }
 
     # AI Engine
+    active_provider = (
+        "openai" if settings.OPENAI_API_KEY
+        else ("gemini" if settings.GEMINI_API_KEY else "rule_based_quant")
+    ) if settings.AI_PROVIDER == "auto" else settings.AI_PROVIDER
+
+    active_model = (
+        settings.OPENAI_MODEL if active_provider == "openai"
+        else (settings.GEMINI_MODEL if active_provider == "gemini" else "Deterministic Quant Engine")
+    )
+
     ai_status = {
-        "provider": settings.AI_PROVIDER,
-        "model": settings.GEMINI_MODEL if settings.AI_PROVIDER in ("gemini", "auto") else settings.OPENAI_MODEL,
+        "provider": active_provider,
+        "configured_provider": settings.AI_PROVIDER,
+        "model": active_model,
+        "openai_api_key_configured": bool(settings.OPENAI_API_KEY),
         "gemini_api_key_configured": bool(settings.GEMINI_API_KEY),
         "deterministic_fallback_active": True,
         "status": "OPERATIONAL",

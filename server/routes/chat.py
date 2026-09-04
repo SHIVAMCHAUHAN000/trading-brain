@@ -28,6 +28,7 @@ class ChatResponse(BaseModel):
     timeframe: str
     intent: str
     response: str
+    engine: str = Field(default="Deterministic Quant Engine", description="AI / LLM model that generated the response")
     tools_called: List[str]
     latency_ms: float
     timestamp: float

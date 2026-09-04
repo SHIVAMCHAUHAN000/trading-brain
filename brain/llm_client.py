@@ -44,24 +44,51 @@ class QuantLLMClient:
     def __init__(self) -> None:
         self.openai_client = None
         self.gemini_client = None
+        self._init_clients()
 
-        # 1. Initialize OpenAI client if configured
-        if settings.OPENAI_API_KEY:
+    def _init_clients(self) -> None:
+        import os
+        openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+        if openai_key:
             try:
                 from openai import OpenAI
-                self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                base_url = os.getenv("OPENAI_BASE_URL") or None
+                self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url)
                 logger.info("Initialized OpenAI client with model %s", settings.OPENAI_MODEL)
             except Exception as e:
                 logger.warning("Could not initialize OpenAI client: %s", e)
 
-        # 2. Initialize Gemini client if configured
-        if settings.GEMINI_API_KEY:
+        gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
+        if gemini_key:
             try:
                 from google import genai
-                self.gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                self.gemini_client = genai.Client(api_key=gemini_key.strip())
                 logger.info("Initialized Google Gemini client with model %s", settings.GEMINI_MODEL)
             except Exception as e:
                 logger.warning("Could not initialize Gemini client: %s", e)
+
+    def _ensure_clients(self) -> None:
+        import os
+        if self.openai_client is None:
+            openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                try:
+                    from openai import OpenAI
+                    base_url = os.getenv("OPENAI_BASE_URL") or None
+                    self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url)
+                    logger.info("Initialized OpenAI client dynamically with model %s", settings.OPENAI_MODEL)
+                except Exception as e:
+                    logger.warning("Could not initialize OpenAI client dynamically: %s", e)
+
+        if self.gemini_client is None:
+            gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
+            if gemini_key:
+                try:
+                    from google import genai
+                    self.gemini_client = genai.Client(api_key=gemini_key.strip())
+                    logger.info("Initialized Gemini client dynamically with model %s", settings.GEMINI_MODEL)
+                except Exception as e:
+                    logger.warning("Could not initialize Gemini client dynamically: %s", e)
 
     async def generate_response(
         self,
@@ -71,33 +98,40 @@ class QuantLLMClient:
         timeframe: str,
         tool_results: Dict[str, Any],
         conversation_history: Optional[List[Dict[str, str]]] = None,
-    ) -> str:
+    ) -> Any:
         """
         Generates analysis response using OpenAI or Gemini LLM if available,
         otherwise falls back to deterministic quant synthesizer.
+        Returns: (response_text, engine_name)
         """
         import asyncio
+
+        self._ensure_clients()
 
         prompt_content = (
             f"User Query: {user_query}\n"
             f"Active Symbol: {symbol}\n"
             f"Active Timeframe: {timeframe}\n"
             f"Intent: {intent.value}\n\n"
-            f"VERIFIED TOOL RESULTS (Use ONLY this data):\n"
+            f"VERIFIED REAL-TIME QUANTITATIVE TOOL RESULTS (Use ONLY this data, NEVER fabricate):\n"
             f"{json.dumps(tool_results, default=str, indent=2)}\n\n"
-            "Synthesize a professional, quantitative, evidence-based response following the required format."
+            "Synthesize a rigorous, institutional, quantitative, evidence-based response following the required format."
         )
 
         # 1. Try OpenAI if API key available and provider is 'openai' or 'auto'
         if self.openai_client and settings.AI_PROVIDER in ("openai", "auto"):
             try:
                 def _call_openai():
+                    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+                    if conversation_history:
+                        for msg in conversation_history[-6:]:
+                            role = msg.get("role", "user")
+                            if role in ("user", "assistant"):
+                                messages.append({"role": role, "content": msg.get("content", "")})
+                    messages.append({"role": "user", "content": prompt_content})
                     completion = self.openai_client.chat.completions.create(
                         model=settings.OPENAI_MODEL,
-                        messages=[
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": prompt_content},
-                        ],
+                        messages=messages,
                         temperature=0.2,
                         max_tokens=1200,
                     )
@@ -105,7 +139,8 @@ class QuantLLMClient:
 
                 response_text = await asyncio.to_thread(_call_openai)
                 if response_text and len(response_text.strip()) > 20:
-                    return response_text.strip()
+                    engine_name = f"OpenAI ({settings.OPENAI_MODEL})"
+                    return response_text.strip(), engine_name
             except Exception as e:
                 logger.error("OpenAI API generation error: %s, checking alternatives", e)
 
@@ -122,18 +157,20 @@ class QuantLLMClient:
 
                 response_text = await asyncio.to_thread(_call_gemini)
                 if response_text and len(response_text.strip()) > 20:
-                    return response_text.strip()
+                    engine_name = f"Google Gemini ({settings.GEMINI_MODEL})"
+                    return response_text.strip(), engine_name
             except Exception as e:
                 logger.error("Gemini API generation error: %s, falling back to deterministic synthesizer", e)
 
         # 3. Deterministic high-precision quant fallback
-        return synthesize_quant_response(
+        synth = synthesize_quant_response(
             intent=intent,
             user_query=user_query,
             symbol=symbol,
             timeframe=timeframe,
             tool_results=tool_results,
         )
+        return synth, "Deterministic Quant Engine"
 
 
 # Global singleton LLM client
