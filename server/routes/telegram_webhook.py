@@ -8,8 +8,15 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Header, HTTPException, Request
-from telegram import Bot, Update
-from telegram.constants import ParseMode
+try:
+    from telegram import Bot, Update
+    from telegram.constants import ParseMode
+    TELEGRAM_INSTALLED = True
+except ImportError:
+    Bot = None
+    Update = None
+    ParseMode = None
+    TELEGRAM_INSTALLED = False
 
 from config.quant_brain_config import settings
 from brain.orchestrator import quant_brain
@@ -27,6 +34,8 @@ async def telegram_webhook_handler(request: Request):
     Receives incoming webhook events sent by Telegram servers.
     Works seamlessly on Vercel Serverless functions.
     """
+    if not TELEGRAM_INSTALLED:
+        raise HTTPException(status_code=503, detail="Telegram dependencies not installed in this environment.")
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=503, detail="Telegram Bot Token not configured in .env.")
 
@@ -125,6 +134,8 @@ async def setup_telegram_webhook(webhook_url: str):
     Registers your deployed Vercel domain with Telegram's webhook API.
     Example: webhook_url = 'https://your-project.vercel.app/api/v1/telegram/webhook'
     """
+    if not TELEGRAM_INSTALLED:
+        raise HTTPException(status_code=503, detail="Telegram dependencies not installed in this environment.")
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="TELEGRAM_BOT_TOKEN is not configured.")
 
@@ -146,6 +157,8 @@ async def setup_telegram_webhook(webhook_url: str):
 @router.get("/webhook-info")
 async def get_telegram_webhook_info():
     """Checks the currently active webhook configured with Telegram."""
+    if not TELEGRAM_INSTALLED:
+        return {"configured": False, "message": "Telegram dependencies not installed in this environment."}
     if not settings.TELEGRAM_BOT_TOKEN:
         return {"configured": False, "message": "TELEGRAM_BOT_TOKEN not configured."}
 
