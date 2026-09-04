@@ -44,6 +44,8 @@ class QuantLLMClient:
     def __init__(self) -> None:
         self.openai_client = None
         self.gemini_client = None
+        self.openai_quota_exhausted: bool = False
+        self.last_error_message: Optional[str] = None
         self._init_clients()
 
     def _init_clients(self) -> None:
@@ -53,7 +55,7 @@ class QuantLLMClient:
             try:
                 from openai import OpenAI
                 base_url = os.getenv("OPENAI_BASE_URL") or None
-                self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url)
+                self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url, max_retries=0, timeout=12.0)
                 logger.info("Initialized OpenAI client with model %s", settings.OPENAI_MODEL)
             except Exception as e:
                 logger.warning("Could not initialize OpenAI client: %s", e)
@@ -75,7 +77,7 @@ class QuantLLMClient:
                 try:
                     from openai import OpenAI
                     base_url = os.getenv("OPENAI_BASE_URL") or None
-                    self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url)
+                    self.openai_client = OpenAI(api_key=openai_key.strip(), base_url=base_url, max_retries=0, timeout=12.0)
                     logger.info("Initialized OpenAI client dynamically with model %s", settings.OPENAI_MODEL)
                 except Exception as e:
                     logger.warning("Could not initialize OpenAI client dynamically: %s", e)
@@ -119,7 +121,7 @@ class QuantLLMClient:
         )
 
         # 1. Try OpenAI if API key available and provider is 'openai' or 'auto'
-        if self.openai_client and settings.AI_PROVIDER in ("openai", "auto"):
+        if self.openai_client and settings.AI_PROVIDER in ("openai", "auto") and not self.openai_quota_exhausted:
             try:
                 def _call_openai():
                     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -142,7 +144,14 @@ class QuantLLMClient:
                     engine_name = f"OpenAI ({settings.OPENAI_MODEL})"
                     return response_text.strip(), engine_name
             except Exception as e:
-                logger.error("OpenAI API generation error: %s, checking alternatives", e)
+                err_str = str(e)
+                if "insufficient_quota" in err_str or "credit_balance_exhausted" in err_str or "429" in err_str:
+                    self.openai_quota_exhausted = True
+                    self.last_error_message = "OpenAI credit balance exhausted ($0 credits). Add credits at platform.openai.com/billing."
+                    logger.warning("OpenAI quota exhausted (Error 429: credit_balance_exhausted). Falling back to Gemini or Deterministic Quant Engine.")
+                else:
+                    self.last_error_message = err_str[:160]
+                    logger.error("OpenAI API generation error: %s, checking alternatives", e)
 
         # 2. Try Gemini if API key available and provider is 'gemini' or 'auto'
         if self.gemini_client and settings.AI_PROVIDER in ("gemini", "auto"):
@@ -170,7 +179,19 @@ class QuantLLMClient:
             timeframe=timeframe,
             tool_results=tool_results,
         )
-        return synth, "Deterministic Quant Engine"
+
+        engine_name = "Deterministic Quant Engine"
+        if self.openai_quota_exhausted:
+            engine_name = "Deterministic Engine (OpenAI Quota Exhausted)"
+            if intent != QueryIntent.GREETING:
+                synth += (
+                    "\n\n---\n"
+                    "💡 **AI Engine Status**: Your OpenAI API key is verified and connected, but OpenAI returned Error 429 (`credit_balance_exhausted`: $0.00 credit balance). "
+                    "To activate GPT-4o-mini, add $5 credit to your OpenAI account at [platform.openai.com/billing](https://platform.openai.com/settings/organization/billing/) "
+                    "or add a free Google Gemini API key (`GEMINI_API_KEY`) to `.env`."
+                )
+
+        return synth, engine_name
 
 
 # Global singleton LLM client

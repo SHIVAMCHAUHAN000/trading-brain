@@ -48,13 +48,16 @@ async def get_connections_status() -> Dict[str, Any]:
     }
 
     # AI Engine
+    from brain.llm_client import quant_llm_client
+
     active_provider = (
         "openai" if settings.OPENAI_API_KEY
         else ("gemini" if settings.GEMINI_API_KEY else "rule_based_quant")
     ) if settings.AI_PROVIDER == "auto" else settings.AI_PROVIDER
 
+    quota_warning = quant_llm_client.openai_quota_exhausted
     active_model = (
-        settings.OPENAI_MODEL if active_provider == "openai"
+        (f"{settings.OPENAI_MODEL} (Quota Exhausted: $0 Credits)" if quota_warning else settings.OPENAI_MODEL) if active_provider == "openai"
         else (settings.GEMINI_MODEL if active_provider == "gemini" else "Deterministic Quant Engine")
     )
 
@@ -64,8 +67,10 @@ async def get_connections_status() -> Dict[str, Any]:
         "model": active_model,
         "openai_api_key_configured": bool(settings.OPENAI_API_KEY),
         "gemini_api_key_configured": bool(settings.GEMINI_API_KEY),
+        "openai_quota_exhausted": quota_warning,
+        "quota_notice": "OpenAI account has $0 balance (Error 429: credit_balance_exhausted). Add $5 credits at platform.openai.com/billing or use free Gemini." if quota_warning else None,
         "deterministic_fallback_active": True,
-        "status": "OPERATIONAL",
+        "status": "QUOTA_EXHAUSTED" if quota_warning else "OPERATIONAL",
     }
 
     return {

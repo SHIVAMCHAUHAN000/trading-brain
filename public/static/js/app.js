@@ -723,8 +723,17 @@ function appendChatMessage(role, content, tools = [], latency = null, engine = n
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/\n/g, "<br/>");
 
+    let badgeStyle = "bg-blue-950/70 text-blue-300 border-blue-700/60";
+    if (engine && engine.includes("Quota Exhausted")) {
+        badgeStyle = "bg-amber-950/80 text-amber-300 border-amber-700/80";
+    } else if (engine && engine.startsWith("OpenAI")) {
+        badgeStyle = "bg-emerald-950/70 text-emerald-300 border-emerald-700/60";
+    } else if (engine && engine.startsWith("Google Gemini")) {
+        badgeStyle = "bg-purple-950/70 text-purple-300 border-purple-700/60";
+    }
+
     const engineBadge = engine
-        ? `<span class="px-1.5 py-0.5 ${engine.startsWith('OpenAI') ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60' : 'bg-blue-950/70 text-blue-300 border-blue-700/60'} rounded border text-[10px] font-mono font-medium">${engine}</span>`
+        ? `<span class="px-1.5 py-0.5 ${badgeStyle} rounded border text-[10px] font-mono font-medium">${engine}</span>`
         : '';
 
     const toolsBadge = ((tools && tools.length > 0) || engine)
@@ -871,7 +880,14 @@ async function loadConnections() {
 
         // AI Engine
         const aiEl = document.getElementById("ai-status-desc");
-        if (aiEl) aiEl.innerText = `Provider: ${data.ai_engine?.provider} (Model: ${data.ai_engine?.model || 'Deterministic'})`;
+        if (aiEl) {
+            const engineInfo = `Provider: ${data.ai_engine?.provider} (Model: ${data.ai_engine?.model || 'Deterministic'})`;
+            if (data.ai_engine?.quota_notice) {
+                aiEl.innerHTML = `<span class="text-amber-300 font-medium">${engineInfo}</span><br/><span class="text-[10px] text-amber-400 font-mono">⚠️ ${data.ai_engine.quota_notice}</span>`;
+            } else {
+                aiEl.innerText = engineInfo;
+            }
+        }
     } catch (e) {
         console.error("Failed to load connections:", e);
     }

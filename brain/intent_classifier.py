@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Set
 
 
 class QueryIntent(str, Enum):
+    GREETING = "GREETING"
     PRICE_CHECK = "PRICE_CHECK"
     GENERAL_STATUS = "GENERAL_STATUS"
     WHY_DRIVERS = "WHY_DRIVERS"
@@ -28,6 +29,12 @@ class QueryIntent(str, Enum):
 def classify_query_intent(text: str) -> QueryIntent:
     """Classifies user natural language input into a specific analytical intent."""
     t = text.lower().strip()
+
+    # 0. Conversational greetings & introductory assistance
+    greetings = {"hello", "hi", "hey", "hola", "namaste", "good morning", "good afternoon", "good evening", "who are you", "what can you do", "help", "start"}
+    words = t.split()
+    if t in greetings or (words and words[0] in greetings and len(words) <= 3):
+        return QueryIntent.GREETING
 
     # 1. Market briefing / summary
     if any(k in t for k in [
@@ -166,6 +173,9 @@ def select_tools_for_intent(
         from config.quant_brain_config import settings
         for sym in settings.watchlist_symbols[:5]:
             tools.append({"tool": "get_current_price", "args": {"symbol": sym}})
+
+    elif intent == QueryIntent.GREETING:
+        tools.append({"tool": "get_macro_overview", "args": {}})
 
     else:
         tools.append({"tool": "get_current_price", "args": {"symbol": symbol}})

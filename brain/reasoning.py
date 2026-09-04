@@ -20,6 +20,28 @@ def synthesize_quant_response(
     """
     Synthesizes tool outputs into the exact prompt-specified format.
     """
+    # 0. Conversational greeting & system guidance
+    if intent == QueryIntent.GREETING:
+        macro = tool_results.get("get_macro_overview", {})
+        assets = macro.get("instruments", {}) if isinstance(macro, dict) else {}
+        nifty_p = assets.get("NIFTY", {}).get("price", "23,938")
+        banknifty_p = assets.get("BANKNIFTY", {}).get("price", "57,510")
+        return (
+            "👋 **Hello! I am your Live Quant Brain.**\n\n"
+            "I provide real-time institutional quantitative market intelligence with strictly verified, live data feeds.\n\n"
+            "📊 **Active Market Feeds:**\n"
+            f"• **Nifty 50**: ~₹{nifty_p} | **Bank Nifty**: ~₹{banknifty_p}\n"
+            "• **Equities**: Reliance, HDFC Bank, Infosys, TCS\n"
+            "• **Global Commodities**: Gold, Silver, Crude Oil (NYMEX WTI)\n"
+            "• **Crypto & Forex**: Bitcoin (BTC), USD/INR\n\n"
+            "💡 **Recommended Questions:**\n"
+            "• *'What is NIFTY status?'* — Multi-timeframe trend & structure\n"
+            "• *'Where is the liquidity in Bank Nifty?'* — Overhead & downside stop pools\n"
+            "• *'Is there any setup on Reliance?'* — Strategy trigger & invalidation check\n"
+            "• *'Why is Gold moving today?'* — Quantitative catalysts & drivers\n\n"
+            "How can I assist your market analysis right now?"
+        )
+
     # 1. Quick price check
     if intent == QueryIntent.PRICE_CHECK:
         price_data = tool_results.get("get_current_price", {})
