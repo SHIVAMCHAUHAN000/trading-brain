@@ -53,7 +53,7 @@ class QuantBrainSettings(BaseSettings):
         description="AI Provider: 'gemini', 'openai', 'rule_based_quant', or 'auto'",
     )
     GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google Gemini API key")
-    GEMINI_MODEL: str = Field(default="gemini-2.5-flash", description="Gemini model name")
+    GEMINI_MODEL: str = Field(default="gemini-3.6-flash", description="Gemini model name")
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key")
     OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="OpenAI model name")
 
