@@ -91,19 +91,115 @@ async function loadMarketSummary() {
     }
 }
 
+let currentCurrencyDisplayMode = "native"; // "native" or "inr"
+let lastMarketInstruments = [];
+let lastUsdInrRate = 94.5;
+
+function setCurrencyDisplayMode(mode) {
+    currentCurrencyDisplayMode = mode;
+    const nativeBtn = document.getElementById("currency-mode-native-btn");
+    const inrBtn = document.getElementById("currency-mode-inr-btn");
+
+    if (mode === "inr") {
+        if (inrBtn) inrBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium transition";
+        if (nativeBtn) nativeBtn.className = "px-2.5 py-1 rounded-lg text-gray-400 hover:text-white transition";
+    } else {
+        if (nativeBtn) nativeBtn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium transition";
+        if (inrBtn) inrBtn.className = "px-2.5 py-1 rounded-lg text-gray-400 hover:text-white transition";
+    }
+
+    if (lastMarketInstruments && lastMarketInstruments.length > 0) {
+        renderTickerBar(lastMarketInstruments);
+        renderMarketGrid(lastMarketInstruments);
+    }
+    if (currentInstrument) {
+        loadInstrumentDeepDive(currentInstrument);
+    }
+}
+
+function getDomesticUnitLabel(symbol) {
+    switch (symbol) {
+        case "GOLD": return "per 10g (Domestic)";
+        case "SILVER": return "per kg (Domestic)";
+        case "CRUDEOIL": return "per bbl (Domestic)";
+        case "BTC": return "INR est.";
+        default: return "";
+    }
+}
+
+function getNativeUnitLabel(symbol) {
+    switch (symbol) {
+        case "GOLD": return "/oz (COMEX USD)";
+        case "SILVER": return "/oz (COMEX USD)";
+        case "CRUDEOIL": return "/bbl (NYMEX WTI)";
+        case "BTC": return "USD";
+        case "NIFTY": case "BANKNIFTY": return "Index";
+        default: return "INR";
+    }
+}
+
+function computeDomesticInrPrice(symbol, priceUsd, usdinrRate) {
+    if (!priceUsd || isNaN(priceUsd)) return null;
+    const rate = usdinrRate || lastUsdInrRate || 94.5;
+    const p = Number(priceUsd);
+    if (symbol === "GOLD") {
+        // 1 troy oz = 31.1034768 grams. Domestic standard quote is per 10 grams
+        return (p / 31.1034768) * 10 * rate;
+    } else if (symbol === "SILVER") {
+        // Domestic standard quote is per 1 kg
+        return (p / 31.1034768) * 1000 * rate;
+    } else if (symbol === "CRUDEOIL") {
+        // Domestic standard quote is per barrel in INR
+        return p * rate;
+    } else if (symbol === "BTC") {
+        return p * rate;
+    }
+    return p;
+}
+
+function formatPriceDisplay(inst, forceInr = false) {
+    if (!inst || inst.price === undefined || inst.price === null || isNaN(inst.price)) return "N/A";
+    const isUsd = (inst.currency || "").toUpperCase() === "USD";
+    const useInr = forceInr || (currentCurrencyDisplayMode === "inr");
+
+    if (isUsd && useInr) {
+        const inrVal = computeDomesticInrPrice(inst.symbol, inst.price, lastUsdInrRate);
+        if (inrVal !== null) {
+            const formatted = Math.round(inrVal).toLocaleString('en-IN');
+            return `₹${formatted}`;
+        }
+    }
+
+    const val = Number(inst.price);
+    const sym = isUsd ? "$" : "₹";
+    const locale = isUsd ? "en-US" : "en-IN";
+    return `${sym}${val.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function renderTickerBar(instruments) {
     const container = document.getElementById("ticker-bar-container");
     if (!container) return;
+
+    // Cache latest USDINR rate for conversions
+    const usdinrInst = instruments.find(i => i.symbol === "USDINR");
+    if (usdinrInst && usdinrInst.price) {
+        lastUsdInrRate = Number(usdinrInst.price);
+    }
+    lastMarketInstruments = instruments;
 
     container.innerHTML = instruments.map(inst => {
         const isUp = (inst.change || 0) >= 0;
         const colorClass = isUp ? "text-emerald-400" : "text-rose-400";
         const sign = isUp ? "+" : "";
+        const formattedPrice = formatPriceDisplay(inst);
+        const unitSuffix = (currentCurrencyDisplayMode === "inr" && inst.currency === "USD")
+            ? (inst.symbol === "GOLD" ? " /10g" : (inst.symbol === "SILVER" ? " /kg" : (inst.symbol === "CRUDEOIL" ? " /bbl" : "")))
+            : "";
         return `
-            <div class="ticker-pill flex items-center space-x-2 px-3 py-1.5 bg-gray-900/80 border border-gray-800 rounded-lg cursor-pointer text-xs flex-shrink-0"
+            <div class="ticker-pill flex items-center space-x-1.5 px-3 py-1.5 bg-gray-900/80 border border-gray-800 rounded-lg cursor-pointer text-xs flex-shrink-0 hover:border-blue-500/40 transition"
                  onclick="selectInstrument('${inst.symbol}')">
                 <span class="font-bold text-gray-200">${inst.symbol}</span>
-                <span class="font-mono text-gray-300">${inst.price || 'N/A'}</span>
+                <span class="font-mono text-gray-100 font-semibold">${formattedPrice}${unitSuffix}</span>
                 <span class="font-mono ${colorClass}">${sign}${inst.change_pct}%</span>
             </div>
         `;
@@ -120,9 +216,37 @@ function renderMarketGrid(instruments) {
         const sign = isUp ? "+" : "";
         const isOpen = inst.session_state === "OPEN";
         const badgeColor = isOpen ? "bg-emerald-950 text-emerald-300 border-emerald-800" : "bg-gray-800 text-gray-400 border-gray-700";
+        const isUsd = (inst.currency || "").toUpperCase() === "USD";
+
+        let displayPrice = formatPriceDisplay(inst);
+        let currencySub = inst.currency;
+        let domesticBadge = "";
+
+        if (currentCurrencyDisplayMode === "inr") {
+            if (isUsd) {
+                currencySub = `INR (${getDomesticUnitLabel(inst.symbol)})`;
+                const nativeVal = `$${Number(inst.price).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                domesticBadge = `<div class="text-[11px] text-gray-400 mt-0.5 font-mono">COMEX Ref: ${nativeVal} ${getNativeUnitLabel(inst.symbol)}</div>`;
+            } else {
+                currencySub = "INR";
+            }
+        } else {
+            // Native mode
+            if (isUsd) {
+                currencySub = `${inst.currency} (${getNativeUnitLabel(inst.symbol)})`;
+                const inrVal = computeDomesticInrPrice(inst.symbol, inst.price, lastUsdInrRate);
+                if (inrVal) {
+                    const inrFormatted = Math.round(inrVal).toLocaleString('en-IN');
+                    const domUnit = getDomesticUnitLabel(inst.symbol);
+                    domesticBadge = `<div class="text-[11px] text-amber-300/90 mt-0.5 font-mono">≈ ₹${inrFormatted} ${domUnit}</div>`;
+                }
+            } else {
+                currencySub = "INR";
+            }
+        }
 
         return `
-            <div class="glass-panel p-4 flex flex-col justify-between hover:border-blue-500/50 cursor-pointer"
+            <div class="glass-panel p-4 flex flex-col justify-between hover:border-blue-500/50 cursor-pointer transition"
                  onclick="selectInstrument('${inst.symbol}')">
                 <div>
                     <div class="flex justify-between items-start mb-2">
@@ -134,9 +258,12 @@ function renderMarketGrid(instruments) {
                             ${inst.session_state}
                         </span>
                     </div>
-                    <div class="flex items-baseline space-x-2 my-2">
-                        <span class="text-2xl font-bold font-mono text-white">${inst.price || 'N/A'}</span>
-                        <span class="text-xs text-gray-400">${inst.currency}</span>
+                    <div class="my-2">
+                        <div class="flex items-baseline space-x-2">
+                            <span class="text-2xl font-bold font-mono text-white">${displayPrice}</span>
+                            <span class="text-xs text-gray-400 font-mono">${currencySub}</span>
+                        </div>
+                        ${domesticBadge}
                     </div>
                     <div class="flex items-center space-x-2 text-sm font-mono ${colorClass}">
                         <span>${sign}${inst.change}</span>
@@ -234,7 +361,27 @@ function renderDeepDiveMetrics(data) {
 
     // Top metrics
     const priceEl = document.getElementById("dd-price");
-    if (priceEl) priceEl.innerText = `${q.price || 'N/A'} ${q.currency || 'INR'}`;
+    if (priceEl) {
+        priceEl.innerText = formatPriceDisplay(q);
+    }
+
+    const domesticEl = document.getElementById("dd-domestic-equiv");
+    if (domesticEl) {
+        const isUsd = (q.currency || "").toUpperCase() === "USD";
+        if (isUsd) {
+            const inrVal = computeDomesticInrPrice(q.symbol, q.price, lastUsdInrRate);
+            if (inrVal) {
+                const inrFormatted = Math.round(inrVal).toLocaleString('en-IN');
+                const domUnit = getDomesticUnitLabel(q.symbol);
+                domesticEl.innerText = `≈ ₹${inrFormatted} ${domUnit}`;
+                domesticEl.classList.remove("hidden");
+            } else {
+                domesticEl.classList.add("hidden");
+            }
+        } else {
+            domesticEl.classList.add("hidden");
+        }
+    }
 
     const chgEl = document.getElementById("dd-change");
     if (chgEl) {
@@ -663,7 +810,7 @@ async function loadWatchlist() {
             return `
                 <tr class="border-b border-gray-800 hover:bg-gray-800/40 cursor-pointer" onclick="selectInstrument('${item.symbol}')">
                     <td class="py-3 px-4 font-bold text-white">${item.symbol}</td>
-                    <td class="py-3 px-4 font-mono">${item.price || 'N/A'} ${item.currency || ''}</td>
+                    <td class="py-3 px-4 font-mono font-medium text-gray-200">${formatPriceDisplay(item)}</td>
                     <td class="py-3 px-4 font-mono ${colorClass}">${sign}${item.change_pct || 0}%</td>
                     <td class="py-3 px-4 text-xs text-gray-400">${item.freshness?.status || 'CONNECTED'}</td>
                     <td class="py-3 px-4 text-right">

@@ -122,30 +122,30 @@ INSTRUMENTS: Dict[str, InstrumentMeta] = {
     # Commodities & Global
     "GOLD": InstrumentMeta(
         symbol="GOLD",
-        name="Gold Futures (COMEX/MCX)",
+        name="Gold Futures (COMEX USD/oz)",
         ticker="GC=F",
         segment=MarketSegment.COMMODITY,
         currency="USD",
         exchange="COMEX",
-        description="Gold continuous futures contract",
+        description="Gold continuous futures contract (USD per troy ounce)",
     ),
     "SILVER": InstrumentMeta(
         symbol="SILVER",
-        name="Silver Futures",
+        name="Silver Futures (COMEX USD/oz)",
         ticker="SI=F",
         segment=MarketSegment.COMMODITY,
         currency="USD",
         exchange="COMEX",
-        description="Silver continuous futures contract",
+        description="Silver continuous futures contract (USD per troy ounce)",
     ),
     "CRUDEOIL": InstrumentMeta(
         symbol="CRUDEOIL",
-        name="Crude Oil Futures (WTI/Brent)",
+        name="Crude Oil WTI (NYMEX USD/bbl)",
         ticker="CL=F",
         segment=MarketSegment.COMMODITY,
         currency="USD",
         exchange="NYMEX",
-        description="Light sweet crude oil futures contract",
+        description="Light sweet crude oil futures contract (USD per barrel)",
     ),
 
     # Crypto

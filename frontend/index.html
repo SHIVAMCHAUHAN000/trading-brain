@@ -50,8 +50,12 @@
                 <div class="text-xs text-gray-500">Connecting to live feeds...</div>
             </div>
 
-            <!-- Health Status Badge -->
-            <div class="flex items-center space-x-3">
+            <!-- Currency Mode Switcher & Health Status Badge -->
+            <div class="flex items-center space-x-2.5">
+                <div class="flex items-center bg-gray-950 p-1 rounded-xl border border-gray-800 text-[11px] font-mono">
+                    <button id="currency-mode-native-btn" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium transition" onclick="setCurrencyDisplayMode('native')">Native ($/₹)</button>
+                    <button id="currency-mode-inr-btn" class="px-2.5 py-1 rounded-lg text-gray-400 hover:text-white transition" onclick="setCurrencyDisplayMode('inr')">Unified ₹</button>
+                </div>
                 <div id="system-health-badge" class="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center space-x-1.5">
                     <span class="pulse-dot bg-emerald-400"></span>
                     <span class="font-medium">SYSTEM HEALTHY</span>
@@ -224,9 +228,10 @@
             <div class="glass-panel p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 id="deepdive-symbol-title" class="text-xl font-bold text-white">NIFTY Deep Dive</h2>
-                    <div class="flex items-center space-x-3 mt-1">
+                    <div class="flex items-center flex-wrap gap-2.5 mt-1">
                         <span id="dd-price" class="text-2xl font-mono font-bold text-white">--</span>
                         <span id="dd-change" class="text-sm font-mono text-gray-400">--</span>
+                        <span id="dd-domestic-equiv" class="hidden text-xs px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-800/80 font-mono text-amber-300 font-medium">--</span>
                         <span id="dd-regime" class="text-xs px-2 py-0.5 rounded bg-gray-800 border border-gray-700 font-mono text-gray-300">RANGE</span>
                     </div>
                 </div>
