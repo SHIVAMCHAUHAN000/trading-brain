@@ -711,6 +711,35 @@ async function handleSendMessage() {
     }
 }
 
+function renderMarkdownText(rawText) {
+    if (!rawText) return "";
+    let html = rawText;
+
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold text-blue-300 mt-3 mb-1 border-b border-gray-800 pb-1">$1</h4>');
+    html = html.replace(/^## (.*$)/gim, '<h3 class="text-base font-bold text-white mt-4 mb-1.5 border-b border-gray-800 pb-1">$1</h3>');
+    html = html.replace(/^# (.*$)/gim, '<h2 class="text-lg font-extrabold text-white mt-4 mb-2 border-b border-gray-700 pb-1">$1</h2>');
+
+    // Blockquotes / callouts
+    html = html.replace(/^> (.*$)/gim, '<blockquote class="border-l-2 border-blue-500 bg-blue-950/20 px-3 py-1.5 rounded-r my-2 text-xs text-blue-200/90 italic">$1</blockquote>');
+
+    // Bold & italic
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em class="text-gray-300">$1</em>');
+
+    // Bullet points
+    html = html.replace(/^[•\-\*] (.*$)/gim, '<li class="ml-4 list-disc text-gray-300 my-0.5">$1</li>');
+
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline underline-offset-2">$1</a>');
+
+    // Spacing
+    html = html.replace(/\n\n/g, '<div class="h-2"></div>');
+    html = html.replace(/\n/g, '<br/>');
+
+    return html;
+}
+
 function appendChatMessage(role, content, tools = [], latency = null, engine = null) {
     const container = document.getElementById("chat-messages-container");
     if (!container) return;
@@ -718,10 +747,7 @@ function appendChatMessage(role, content, tools = [], latency = null, engine = n
     const div = document.createElement("div");
     div.className = `flex flex-col ${role === "user" ? "items-end" : "items-start"} mb-4`;
 
-    const formattedContent = content
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
-        .replace(/\n/g, "<br/>");
+    const formattedContent = renderMarkdownText(content);
 
     let badgeStyle = "bg-blue-950/70 text-blue-300 border-blue-700/60";
     if (engine && engine.includes("Quota Exhausted")) {
@@ -745,11 +771,11 @@ function appendChatMessage(role, content, tools = [], latency = null, engine = n
         : '';
 
     div.innerHTML = `
-        <div class="max-w-[85%] md:max-w-[75%] p-3.5 ${role === "user" ? "chat-user text-white" : "chat-assistant text-gray-200"}">
+        <div class="max-w-[85%] md:max-w-[80%] p-4 ${role === "user" ? "chat-user text-white" : "chat-assistant text-gray-200 border border-gray-800/90 shadow-lg"}">
             <div class="text-sm leading-relaxed">${formattedContent}</div>
             ${toolsBadge}
         </div>
-        <span class="text-[10px] text-gray-500 mt-1 px-1">${role === 'user' ? 'You' : (engine ? `Live Quant Brain • <span class="text-blue-400">${engine}</span>` : 'Live Quant Brain')}</span>
+        <span class="text-[10px] text-gray-500 mt-1 px-1">${role === 'user' ? 'You' : (engine ? `100-Yr Veteran Strategist • <span class="text-blue-400">${engine}</span>` : '100-Yr Veteran Strategist')}</span>
     `;
 
     container.appendChild(div);

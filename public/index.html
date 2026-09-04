@@ -146,63 +146,63 @@
         <section id="chat-panel" class="tab-panel hidden space-y-4">
             <div class="glass-panel flex flex-col h-[75vh]">
                 <!-- Chat Header -->
-                <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-lg">🤖</span>
+                <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="text-xl">🏛️</span>
                         <div>
-                            <h3 class="text-sm font-bold text-white">Live Quant Analyst</h3>
-                            <p class="text-[11px] text-gray-400">Continuous context memory. Ask follow-up questions naturally.</p>
+                            <h3 class="text-sm font-bold text-white tracking-wide">100-Year Veteran Market Researcher & Quant Strategist</h3>
+                            <p class="text-[11px] text-gray-400">Real-time TradingView chart alignment • Smart-money liquidity mechanics • Institutional tape reading</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-2 text-xs">
-                        <span class="px-2 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[11px]">Active Session</span>
+                        <span class="px-2.5 py-1 rounded-full bg-blue-950 text-blue-300 border border-blue-800 text-[11px] font-mono">Continuous Memory</span>
                     </div>
                 </div>
 
                 <!-- Prompt Suggestions Bar -->
                 <div class="px-4 py-2 bg-gray-950/40 border-b border-gray-800/50 flex space-x-2 overflow-x-auto text-xs scrollbar-none">
-                    <span class="text-gray-500 whitespace-nowrap self-center text-[11px]">Try asking:</span>
+                    <span class="text-gray-500 whitespace-nowrap self-center text-[11px] font-medium">Quick Analysis:</span>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('What is NIFTY doing right now?')">
-                        What is NIFTY doing?
+                            onclick="sendPromptToChat('Analyze NIFTY structure and key TradingView levels')">
+                        NIFTY Chart Blueprint
                     </button>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('Why?')">
-                        Why?
+                            onclick="sendPromptToChat('Where are the smart money stop-loss traps and liquidity pools?')">
+                        Smart Money Liquidity Map
                     </button>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('Where is liquidity?')">
-                        Where is liquidity?
+                            onclick="sendPromptToChat('Is there a high-probability trade setup developing?')">
+                        High-Probability Setup
                     </button>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('What is the 15-minute trend?')">
-                        15m trend?
+                            onclick="sendPromptToChat('Why is the market moving today? Explain the primary catalysts')">
+                        Why is Market Moving?
                     </button>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('Is there a high quality setup developing?')">
-                        Is there a setup?
+                            onclick="sendPromptToChat('Compare NIFTY and BANKNIFTY relative momentum')">
+                        NIFTY vs BANKNIFTY
                     </button>
                     <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('Summarize today\'s market briefing')">
-                        Market Briefing
-                    </button>
-                    <button class="px-2.5 py-1 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 whitespace-nowrap text-[11px] transition"
-                            onclick="sendPromptToChat('Compare NIFTY and BANKNIFTY')">
-                        Compare NIFTY vs BANKNIFTY
+                            onclick="sendPromptToChat('Analyze GOLD from a macro and institutional perspective')">
+                        Gold Macro Breakdown
                     </button>
                 </div>
 
                 <!-- Messages Container -->
                 <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3">
                     <div class="flex flex-col items-start mb-4">
-                        <div class="chat-assistant max-w-[85%] md:max-w-[75%] p-3.5 text-gray-200">
-                            <div class="text-sm leading-relaxed">
-                                👋 Welcome to your <strong>Personal Live Quant Brain</strong>.<br/>
-                                You can ask me about live prices, market structure, liquidity pools, momentum, volume profiles, market drivers, or high-probability setups across Indian markets (NIFTY, BANKNIFTY, Equities) and global assets (Gold, Silver, Crude, BTC).<br/><br/>
-                                I maintain complete follow-up context memory — for example, ask <em>"What is NIFTY doing?"</em> followed by <em>"Why?"</em> and <em>"Where is liquidity?"</em>.
+                        <div class="chat-assistant max-w-[85%] md:max-w-[80%] p-4 text-gray-200 rounded-2xl border border-gray-800 bg-gray-900/70">
+                            <div class="text-sm leading-relaxed space-y-2">
+                                <p>👋 <strong>Welcome. I am your Senior Market Researcher & Quant Strategist.</strong></p>
+                                <p class="text-xs text-gray-300">
+                                    I analyze live market flow with <strong>a century of collective market wisdom</strong>—combining tape reading, Wyckoff accumulation/distribution, and smart-money liquidity mechanics directly synchronized with your <strong>live TradingView chart</strong>.
+                                </p>
+                                <div class="pt-2 border-t border-gray-800/80 text-xs text-gray-400">
+                                    Ask me anything about market regime, key reference levels to draw on your chart (PDH/PDL), liquidity stop runs, or high-conviction scenarios across Indian and global markets.
+                                </div>
                             </div>
                         </div>
-                        <span class="text-[10px] text-gray-500 mt-1 px-1">Live Quant Brain</span>
+                        <span class="text-[10px] text-gray-500 mt-1 px-1">Chief Market Strategist</span>
                     </div>
                 </div>
 
