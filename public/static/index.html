@@ -21,6 +21,8 @@
     </script>
     <!-- TradingView Lightweight Charts CDN -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- TradingView Advanced Real-Time Chart CDN -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <!-- Custom Glassmorphic Styles -->
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
@@ -238,14 +240,32 @@
                 </div>
             </div>
 
-            <!-- Candlestick Chart -->
+            <!-- Interactive Candlestick Chart -->
             <div class="glass-panel p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Candlestick Chart</span>
-                    <span class="text-xs text-gray-500">Live OHLCV</span>
+                <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Live Candlestick Chart</span>
+                        <span id="chart-active-symbol-badge" class="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-950/70 text-blue-400 border border-blue-800">NSE:NIFTY</span>
+                    </div>
+                    <!-- Chart Mode Switcher: TradingView vs Quant Overlay -->
+                    <div class="flex items-center space-x-1 bg-gray-950 p-1 rounded-lg border border-gray-800 text-xs">
+                        <button id="chart-mode-tv-btn" class="px-2.5 py-1 rounded bg-blue-600 text-white font-medium transition flex items-center space-x-1" onclick="switchChartMode('tradingview')">
+                            <span>TradingView Live</span>
+                        </button>
+                        <button id="chart-mode-quant-btn" class="px-2.5 py-1 rounded bg-gray-800 text-gray-400 hover:text-white transition flex items-center space-x-1" onclick="switchChartMode('quant')">
+                            <span>Quant Structure</span>
+                        </button>
+                    </div>
                 </div>
-                <div id="chart-container" class="w-full h-[380px] rounded-lg overflow-hidden bg-[#0d131f]">
-                    <!-- Chart injected via JS -->
+
+                <!-- TradingView Embed Widget Container -->
+                <div id="tradingview-chart-box" class="w-full h-[450px] rounded-lg overflow-hidden bg-[#0d131f]">
+                    <!-- TradingView Widget injected via JS -->
+                </div>
+
+                <!-- Custom Quant Lightweight Chart Container (Toggled) -->
+                <div id="chart-container" class="w-full h-[450px] rounded-lg overflow-hidden bg-[#0d131f] hidden">
+                    <!-- Lightweight Chart injected via JS -->
                 </div>
             </div>
 

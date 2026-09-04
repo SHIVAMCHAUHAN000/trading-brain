@@ -47,8 +47,18 @@ function initNavigation() {
             const activePanel = document.getElementById(target);
             if (activePanel) {
                 activePanel.classList.remove("hidden");
-                if (target === "deepdive-panel" && chartInstance) {
-                    setTimeout(() => chartInstance.timeScale().fitContent(), 100);
+                if (target === "deepdive-panel") {
+                    if (currentChartMode === "tradingview") {
+                        renderTradingViewWidget(currentInstrument, currentTimeframe);
+                    } else if (chartInstance) {
+                        setTimeout(() => {
+                            const c = document.getElementById("chart-container");
+                            if (c && chartInstance) {
+                                chartInstance.applyOptions({ width: c.clientWidth || 800 });
+                                chartInstance.timeScale().fitContent();
+                            }
+                        }, 60);
+                    }
                 }
             }
         });
@@ -201,7 +211,12 @@ async function loadInstrumentDeepDive(symbol) {
 
         if (candlesRes.ok) {
             const candleData = await candlesRes.json();
-            renderCandleChart(candleData.candles || []);
+            lastCandleData = candleData.candles || [];
+            if (currentChartMode === "tradingview") {
+                renderTradingViewWidget(symbol, currentTimeframe);
+            } else {
+                renderCandleChart(lastCandleData);
+            }
         }
     } catch (e) {
         console.error("Error loading instrument deep dive:", e);
@@ -288,17 +303,125 @@ function renderDeepDiveMetrics(data) {
     }
 }
 
+let currentChartMode = "tradingview"; // "tradingview" or "quant"
+let lastCandleData = [];
+let chartResizeObserver = null;
+
+function switchChartMode(mode) {
+    currentChartMode = mode;
+    const tvBox = document.getElementById("tradingview-chart-box");
+    const quantBox = document.getElementById("chart-container");
+    const tvBtn = document.getElementById("chart-mode-tv-btn");
+    const quantBtn = document.getElementById("chart-mode-quant-btn");
+
+    if (mode === "tradingview") {
+        if (tvBox) tvBox.classList.remove("hidden");
+        if (quantBox) quantBox.classList.add("hidden");
+        if (tvBtn) tvBtn.className = "px-2.5 py-1 rounded bg-blue-600 text-white font-medium transition flex items-center space-x-1";
+        if (quantBtn) quantBtn.className = "px-2.5 py-1 rounded bg-gray-800 text-gray-400 hover:text-white transition flex items-center space-x-1";
+        renderTradingViewWidget(currentInstrument, currentTimeframe);
+    } else {
+        if (tvBox) tvBox.classList.add("hidden");
+        if (quantBox) quantBox.classList.remove("hidden");
+        if (tvBtn) tvBtn.className = "px-2.5 py-1 rounded bg-gray-800 text-gray-400 hover:text-white transition flex items-center space-x-1";
+        if (quantBtn) quantBtn.className = "px-2.5 py-1 rounded bg-blue-600 text-white font-medium transition flex items-center space-x-1";
+        if (lastCandleData && lastCandleData.length > 0) {
+            renderCandleChart(lastCandleData);
+        }
+    }
+}
+
+function getTradingViewSymbol(symbol) {
+    const s = (symbol || "").toUpperCase();
+    const map = {
+        "NIFTY": "NSE:NIFTY",
+        "BANKNIFTY": "NSE:BANKNIFTY",
+        "RELIANCE": "NSE:RELIANCE",
+        "HDFCBANK": "NSE:HDFCBANK",
+        "ICICIBANK": "NSE:ICICIBANK",
+        "INFY": "NSE:INFY",
+        "TCS": "NSE:TCS",
+        "GOLD": "TVC:GOLD",
+        "SILVER": "TVC:SILVER",
+        "CRUDEOIL": "TVC:USOIL",
+        "BTC": "BINANCE:BTCUSDT",
+        "USDINR": "FX_IDC:USDINR",
+    };
+    return map[s] || `NSE:${s}`;
+}
+
+function getTradingViewInterval(tf) {
+    const map = {
+        "1m": "1",
+        "5m": "5",
+        "15m": "15",
+        "30m": "30",
+        "1h": "60",
+        "1d": "D",
+    };
+    return map[tf] || "15";
+}
+
+function renderTradingViewWidget(symbol, tf) {
+    const container = document.getElementById("tradingview-chart-box");
+    if (!container) return;
+
+    const tvSymbol = getTradingViewSymbol(symbol);
+    const tvInterval = getTradingViewInterval(tf);
+
+    const badge = document.getElementById("chart-active-symbol-badge");
+    if (badge) badge.innerText = `${symbol} (${tvSymbol})`;
+
+    // Check if official tv.js library loaded
+    if (window.TradingView && typeof window.TradingView.widget === "function") {
+        container.innerHTML = `<div id="tv_chart_inner" class="w-full h-full" style="min-height: 450px;"></div>`;
+        try {
+            new window.TradingView.widget({
+                autosize: true,
+                symbol: tvSymbol,
+                interval: tvInterval,
+                timezone: "Asia/Kolkata",
+                theme: "dark",
+                style: "1",
+                locale: "en",
+                toolbar_bg: "#0d131f",
+                enable_publishing: false,
+                hide_top_toolbar: false,
+                hide_legend: false,
+                save_image: false,
+                container_id: "tv_chart_inner",
+            });
+            return;
+        } catch (err) {
+            console.warn("TradingView widget init error, falling back to iframe embed:", err);
+        }
+    }
+
+    // High-reliability iframe embed (works in all browsers, immune to CDN/adblock script blocks)
+    container.innerHTML = `
+        <iframe 
+            id="tradingview_iframe"
+            src="https://www.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=${tvInterval}&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
+            class="w-full h-full border-0 rounded-lg" 
+            style="width: 100%; height: 100%; min-height: 450px;"
+            allowfullscreen>
+        </iframe>
+    `;
+}
+
 function renderCandleChart(candles) {
+    lastCandleData = candles || [];
     const container = document.getElementById("chart-container");
     if (!container) return;
 
     container.innerHTML = "";
+    const containerWidth = container.clientWidth || container.parentElement?.clientWidth || 800;
 
     // If Lightweight Charts library is loaded from CDN
     if (window.LightweightCharts) {
         chartInstance = LightweightCharts.createChart(container, {
-            width: container.clientWidth,
-            height: 380,
+            width: containerWidth,
+            height: 450,
             layout: {
                 background: { color: "#0d131f" },
                 textColor: "#9ca3af",
@@ -328,7 +451,7 @@ function renderCandleChart(candles) {
             wickUpColor: "#10b981",
         });
 
-        const formatted = candles.map(c => ({
+        const formatted = (candles || []).map(c => ({
             time: c.time,
             open: c.open,
             high: c.high,
@@ -336,19 +459,28 @@ function renderCandleChart(candles) {
             close: c.close,
         }));
 
-        candleSeries.setData(formatted);
-        chartInstance.timeScale().fitContent();
+        if (formatted.length > 0) {
+            candleSeries.setData(formatted);
+            chartInstance.timeScale().fitContent();
+        }
 
-        window.addEventListener("resize", () => {
-            if (chartInstance && container) {
-                chartInstance.applyOptions({ width: container.clientWidth });
-            }
-        });
+        // Setup ResizeObserver for responsive layout and tab switches
+        if (!chartResizeObserver && window.ResizeObserver) {
+            chartResizeObserver = new ResizeObserver((entries) => {
+                for (let entry of entries) {
+                    const width = entry.contentRect.width;
+                    if (width > 0 && chartInstance) {
+                        chartInstance.applyOptions({ width: width });
+                        chartInstance.timeScale().fitContent();
+                    }
+                }
+            });
+            chartResizeObserver.observe(container);
+        }
     } else {
-        // Fallback simple SVG sparkline/candlestick representation
         container.innerHTML = `
             <div class="h-full flex items-center justify-center text-gray-500 text-sm">
-                <p>Interactive chart active (${candles.length} candles loaded)</p>
+                <p>Interactive chart active (${(candles || []).length} candles loaded)</p>
             </div>
         `;
     }

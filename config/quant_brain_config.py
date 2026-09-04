@@ -8,11 +8,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import List, Optional
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Base directory of the repository
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Explicitly load .env with override=True so local keys take priority over stale system envs
+env_file_path = BASE_DIR / ".env"
+if env_file_path.exists():
+    load_dotenv(str(env_file_path), override=True)
 
 
 class QuantBrainSettings(BaseSettings):
