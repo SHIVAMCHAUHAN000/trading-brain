@@ -95,6 +95,90 @@ class YFinanceDataProvider(MarketDataProvider):
             logger.debug("Direct v8 candles fetch failed for %s: %s", ticker_str, e)
         return pd.DataFrame()
 
+    async def _fetch_spot_gold_quote(self) -> Dict[str, Any]:
+        """Fetch real-time spot gold quote matching TradingView TVC:GOLD / XAUUSD."""
+        # 1. Try Binance PAXGUSDT (100% physically backed spot gold, sub-100ms)
+        try:
+            url = "https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(url, headers=self._headers)
+                if resp.status_code == 200:
+                    d = resp.json()
+                    price = float(d.get("lastPrice", 0))
+                    prev_close = float(d.get("prevClosePrice", price))
+                    change = float(d.get("priceChange", price - prev_close))
+                    change_pct = float(d.get("priceChangePercent", 0.0))
+                    high = float(d.get("highPrice", price))
+                    low = float(d.get("lowPrice", price))
+                    volume = int(float(d.get("volume", 0)))
+                    if price > 0:
+                        return {
+                            "price": round(price, 2),
+                            "prev_close": round(prev_close, 2),
+                            "change": round(change, 2),
+                            "change_pct": round(change_pct, 2),
+                            "open": round(prev_close, 2),
+                            "high": round(high, 2),
+                            "low": round(low, 2),
+                            "volume": volume,
+                            "timestamp": datetime.now(timezone.utc),
+                        }
+        except Exception as e:
+            logger.debug("Binance PAXG spot gold quote failed: %s", e)
+
+        # 2. Try api.gold-api.com
+        try:
+            url = "https://api.gold-api.com/price/XAU"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(url, headers=self._headers)
+                if resp.status_code == 200:
+                    d = resp.json()
+                    price = float(d.get("price", 0))
+                    if price > 0:
+                        return {
+                            "price": round(price, 2),
+                            "prev_close": round(price, 2),
+                            "change": 0.0,
+                            "change_pct": 0.0,
+                            "open": round(price, 2),
+                            "high": round(price, 2),
+                            "low": round(price, 2),
+                            "volume": 0,
+                            "timestamp": datetime.now(timezone.utc),
+                        }
+        except Exception as e:
+            logger.debug("Gold-API fetch failed: %s", e)
+
+        return {}
+
+    async def _fetch_spot_gold_candles(self, interval: str = "15m", limit: int = 100) -> pd.DataFrame:
+        """Fetch real-time spot gold candles matching TradingView TVC:GOLD."""
+        binance_interval_map = {
+            "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+            "1h": "1h", "60m": "1h", "1d": "1d", "daily": "1d",
+            "1wk": "1w", "weekly": "1w"
+        }
+        b_interval = binance_interval_map.get(interval, "15m")
+        try:
+            url = f"https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval={b_interval}&limit={limit}"
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(url, headers=self._headers)
+                if resp.status_code == 200:
+                    raw = resp.json()
+                    if raw and isinstance(raw, list):
+                        df = pd.DataFrame(raw, columns=[
+                            "open_time", "open", "high", "low", "close", "volume",
+                            "close_time", "qav", "num_trades", "taker_base_vol", "taker_quote_vol", "ignore"
+                        ])
+                        df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
+                        df = df.set_index("open_time")
+                        for col in ["open", "high", "low", "close", "volume"]:
+                            df[col] = df[col].astype(float)
+                        return df[["open", "high", "low", "close", "volume"]].copy()
+        except Exception as e:
+            logger.debug("Binance PAXG spot gold candles failed: %s", e)
+        return pd.DataFrame()
+
     def _get_ticker_str(self, symbol: str) -> str:
         canonical = resolve_symbol(symbol) or symbol.upper()
         if canonical in INSTRUMENTS:
@@ -185,11 +269,18 @@ class YFinanceDataProvider(MarketDataProvider):
             return cached
 
         ticker_str = self._get_ticker_str(canonical)
-        # 1. Try high-speed direct Yahoo Finance v8 API (<200ms, cloud-friendly)
-        data = await self._async_fetch_quote_direct(ticker_str)
-        if not data or data.get("price") is None:
-            # 2. Fall back to yfinance python library
-            data = await asyncio.to_thread(self._sync_fetch_quote, ticker_str)
+
+        # Handle spot gold specifically to align with TradingView TVC:GOLD / XAUUSD
+        if canonical == "GOLD":
+            data = await self._fetch_spot_gold_quote()
+            if not data or data.get("price") is None:
+                data = await self._async_fetch_quote_direct("GC=F")
+        else:
+            # 1. Try high-speed direct Yahoo Finance v8 API (<200ms, cloud-friendly)
+            data = await self._async_fetch_quote_direct(ticker_str)
+            if not data or data.get("price") is None:
+                # 2. Fall back to yfinance python library
+                data = await asyncio.to_thread(self._sync_fetch_quote, ticker_str)
 
         if not data or data.get("price") is None:
             # Fallback: try fetching 15m candle
@@ -272,6 +363,15 @@ class YFinanceDataProvider(MarketDataProvider):
         cached = await market_cache.get(cache_key)
         if cached is not None and isinstance(cached, pd.DataFrame) and not cached.empty:
             return cached
+
+        # Handle spot gold specifically to align with TradingView TVC:GOLD / XAUUSD
+        if canonical == "GOLD":
+            limit = 100 if interval not in ("1d", "1wk") else 180
+            df = await self._fetch_spot_gold_candles(interval=interval, limit=limit)
+            if not df.empty:
+                ttl = settings.DATA_CACHE_TTL_CANDLES if interval not in ("1d", "1wk") else settings.DATA_CACHE_TTL_DAILY
+                await market_cache.set(cache_key, df, ttl)
+                return df
 
         # 1. Try direct v8 API first
         range_str = period
